@@ -1,0 +1,6 @@
+.clockbox h2, .clockbox ul, .clockbox .calendar-cancel, .calendarbox div:first-child, .calendarbox .calendar-shortcuts, .calendarbox .calendar-cancel, .calendarbox .calendar {
+    background: #fff;
+    width: 100%!important;
+    margin: 0 auto;
+    padding: 0;
+}

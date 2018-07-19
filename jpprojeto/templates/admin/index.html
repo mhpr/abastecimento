@@ -1,0 +1,349 @@
+{% extends "admin/index.html" %}
+{% load i18n admin_urls static admin_modify %}
+
+
+{% block recent_actions  %}
+	{% if request.user.is_superuser %}
+
+		<script type="text/javascript" src="{% static "dygraphs/dygraph-combined.js" %} "></script>
+		<script type="text/javascript" src="{% static "chosen/chosen.jquery.js" %} "></script>
+  		<link rel="stylesheet" type="text/css" href="{% static "chosen/chosen.css" %}" />
+  		<link rel="stylesheet" type="text/css" href="//cdn.datatables.net/1.10.12/css/jquery.dataTables.css">
+  
+		<script type="text/javascript" charset="utf8" src="//cdn.datatables.net/1.10.12/js/jquery.dataTables.js"></script>
+		<script type="text/javascript" charset="utf8" src="//cdn.datatables.net/buttons/1.2.2/js/dataTables.buttons.min.js"></script>
+		<script type="text/javascript" charset="utf8" src="//cdn.datatables.net/buttons/1.2.2/js/buttons.flash.min.js"></script>
+		<script type="text/javascript" charset="utf8" src="//cdnjs.cloudflare.com/ajax/libs/jszip/2.5.0/jszip.min.js"></script>
+		<script type="text/javascript" charset="utf8" src="//cdn.rawgit.com/bpampuch/pdfmake/0.1.18/build/pdfmake.min.js"></script>
+		<script type="text/javascript" charset="utf8" src="//cdn.rawgit.com/bpampuch/pdfmake/0.1.18/build/vfs_fonts.js"></script>
+		<script type="text/javascript" charset="utf8" src="//cdn.datatables.net/buttons/1.2.2/js/buttons.html5.min.js"></script>
+		<script type="text/javascript" charset="utf8" src="//cdn.datatables.net/buttons/1.2.2/js/buttons.print.min.js"></script>
+
+
+  		<link rel="stylesheet" type="text/css" href="//cdn.datatables.net/1.10.12/css/jquery.dataTables.min.css">
+
+  		<link rel="stylesheet" type="text/css" href="//cdn.datatables.net/buttons/1.2.2/css/buttons.dataTables.min.css">
+
+
+		
+
+
+
+
+
+
+		<!-- Include Required Prerequisites -->
+		<script type="text/javascript" src="{% static "moment/min/moment.min.js" %} "></script>
+		<link rel="stylesheet" type="text/css" href="{% static "bootstrap_admin/css/bootstrap.min.css" %}"  />
+		 
+		<!-- Include Date Range Picker -->
+		<script type="text/javascript" src="{% static "bootstrap-daterangepicker/daterangepicker.js" %} " ></script>
+		<link rel="stylesheet" type="text/css" href="{% static "bootstrap-daterangepicker/daterangepicker.css" %}" />
+
+		<style type="text/css">
+			.few .dygraph-legend > span.highlight { border: 1px solid grey; }
+
+			.many .dygraph-legend > span { display: none; }
+
+			.many .dygraph-legend > span.highlight { display: inline; }
+		</style>
+		<h1>Datas de Inicio e Fim</h1>
+
+		<input type="text" id="date_range" name="daterange" value="01/07/2016 - 30/11/2016" />
+
+		<script type="text/javascript">
+		$(function() {
+		    $('input[name="daterange"]').daterangepicker({autoApply:true,locale: {
+            format: 'DD/MM/YYYY'
+        	}});
+		    $('input[name="daterange"]').on('apply.daterangepicker', function(ev, picker) {
+		      $(this).val(picker.startDate.format('DD/MM/YYYY') + ' - ' + picker.endDate.format('DD/MM/YYYY'));
+		  });
+		});
+		</script> 
+		<!-- <select id="date" class="chosen-select" data-placeholder="Meses atrás..." style="width:350px; padding:10px;" tabindex="3">
+      		<option value="1">1 Mês</option>
+      		<option value="2">2 Mês</option>
+      		<option value="3">3 Mês</option>
+      		<option value="4">4 Mês</option>
+      		<option value="6">6 Mês</option>
+      		<option value="12" selected="">12 Mês/ 1 Ano</option>
+      	</select>  -->
+		<h1> Placas Favoritas </h1>
+		<select id="placas-favoritas" class="chosen-select" data-placeholder="Escolha os Equipamentos Favoritos..." style="width:100%;padding:10px;" multiple="" tabindex="4">
+      	</select>
+		<div style="padding:20px;" id="favoritos_graficos"></div>
+		<h1> Todas as Placas </h1>
+		<select id="placas" class="chosen-select" data-placeholder="Escolha os Equipamentos ..." style="width:350px;padding:10px;" multiple="" tabindex="2">
+      	</select>
+		<div style="padding:20px; width:100%; " id="demo"></div>
+		<div id="consumo-tablea" ></div>
+		<script type="text/javascript">
+			var formateDate = function(date,standart){
+	   			var formated = '';
+	   			if(standart){
+
+                	var dd = date.getDate();
+					var mm = date.getMonth()+1; //January is 0!
+					var yyyy = date.getFullYear();
+					if(dd<10){
+					    dd='0'+dd
+					} 
+					if(mm<10){
+					    mm='0'+mm
+					} 
+					formated = yyyy+'/'+mm+'/'+dd;
+	   			}else{
+	   				var dd = date.getDate();
+					var mm =  date.getMonth()+1; //January is 0!
+					var yyyy =  date.getFullYear().toString().substr(2,2);
+					if(dd<10){
+					    dd='0'+dd
+					} 
+					if(mm<10){
+					    mm='0'+mm
+					} 
+					formated = dd+'/'+mm+'/'+ yyyy;
+	   			}
+
+				return formated
+	   		};
+		   $(document).ready(function () {
+		   		
+		   		var change_mainGraph = function(evt, params) {
+				    var selected_values  = $("#placas").chosen().val();
+				    var monthsago_selected  = undefined;//$("#date").chosen().val();
+				    var date_range  = $("#date_range").val();
+
+				    selected_values = selected_values?selected_values:[];
+				    var string_selected_values =  selected_values.join(",");
+				    generateGraph(string_selected_values,'demo',monthsago_selected,date_range);
+				    generateTable(string_selected_values,'consumo-tablea',monthsago_selected,date_range);
+			  	};
+			  	var change_favoriteGraph = function(evt, params) { 
+				    var selected_values  = $("#placas-favoritas.chosen-select").chosen().val();
+		    		selected_values = selected_values?selected_values:[];
+				    var monthsago_selected  = undefined;//$("#date").chosen().val();
+				    var date_range  = $("#date_range").val();
+				    var string_selected_values =  selected_values.join(",");
+				    if(params){
+   						$.getJSON( "/update_labels_favorites?placas="+string_selected_values, function( data ) {});
+				    }
+					generateGraph(string_selected_values,'favoritos_graficos',monthsago_selected,date_range);
+			  	};
+
+			  	var generateTable= function(placas,div_initial,monthsago,date_range){
+			  		var monthsago_val = monthsago?monthsago:12
+		   			var placas_query = placas?'placas='+placas+'&' :''
+		   			var monthsago_query = monthsago_val?'monthsago='+monthsago_val+'&':''
+		   			var date_range = date_range?'date_range='+date_range+'&':''
+		   			var query =  placas_query+monthsago_query+date_range
+
+		   			$.getJSON( "/customgraph?"+query, function( data ) {
+
+	   					var dates_availables = data.dates.sort(function(a,b){
+								  return new Date(b) - new Date(a);
+							}).map(function(date){return [date,formateDate(new Date(date))]});
+	   					var formatCollumns = [{"data":"nome","title":"Nome"},
+					 						  {"data":"media","title":"Media de hodometro/horimetro"},
+											  {"data":"consumo","title":"Consumo "}]
+	   					dates_availables.forEach(function(date){
+	   						formatCollumns.push({"data":date[0],"title":date[1]});
+	   					});
+
+	   					$('#'+div_initial).empty()
+	   					var table = $("<table class='display' width='100%'></table>");
+	   					$('#'+div_initial).append(table);
+					    table.DataTable({
+					        "ajax": "/customgraph?"+query,
+					        "scrollX": true,
+					        "columns": formatCollumns,
+			         		dom: 'Bfrtip',
+					        buttons: [
+					        	{
+						            extend: 'csv',
+						            text: 'CSV',
+						            filename: 'table-'+formateDate(new Date())
+						        },
+						        {
+						            extend: 'excel',
+						            text: 'excel',
+						            filename: 'table-'+formateDate(new Date())
+						        },
+						        {
+						            extend: 'pdf',
+						            text: 'pdf',
+						            filename: 'table-'+formateDate(new Date())
+						        },
+					            'print'
+					        ]
+					    } );
+					});
+				}
+				
+		   		var generateGraph = function(placas,div_initial,monthsago,date_range){
+		   			var div_initial = div_initial? div_initial:'demo';
+		   			var monthsago_val = monthsago?monthsago:12
+		   			var placas_query = placas?'placas='+placas+'&' :''
+		   			var monthsago_query = monthsago_val?'monthsago='+monthsago_val+'&':''
+		   			var date_range = date_range?'date_range='+date_range+'&':''
+		   			var query =  placas_query+monthsago_query+date_range
+		   			$.getJSON( "/customgraph?"+query, function( data ) {
+		   				if (data.dates.length>0){
+		   					$('#'+div_initial).empty()
+							makeGraph(div_initial,"few", 1, 10, false,data);
+							// makeGraph(div_initial,"few", 1, 10, true,data);
+							// makeGraph(div_initial,"many",1, 10, false,data);
+							// makeGraph(div_initial,"many",1, 10, true,data);
+		   				}
+					});
+		   		};
+
+				var makeGraph = function(div_name,className, numSeries, numRows, isStacked,data) {
+					var demo = document.getElementById(div_name);
+					var div = document.createElement('div');
+					div.className = className;
+					div.style.display = 'inline-block';
+					div.style.margin = '4px';
+					demo.appendChild(div);
+
+					var labels = ['Date'];
+					if (data){
+						for (var i = 0; i < data.labels.length; ++i) {
+					    	var label = '' + data.labels[i];
+					    	labels[i + 1] = label;
+					  }
+					}
+					var dataSource = []
+					if (data){
+						dataSource = data.datapivot.map(function(a){var newArray = [new Date(a[0])]; return newArray.concat(a.slice(1)); })
+					}
+				  	var g = new Dygraph(
+				      div,
+				      dataSource,
+				      { 
+				      	width:850,
+				        labels: labels.slice(),
+				        highlightCircleSize: 2,
+				        strokeWidth: 1,
+				        strokeBorderWidth: isStacked ? null : 1,
+				        errorBars: false ,
+				        xRangePad:20,
+				        yRangePad: 20,
+				        avoidMinZero: false,
+				        drawAxesAtZero: false,
+				        includeZero: true, 
+				        labelsKMB: true ,
+                  		drawPoints: true,
+                  		showRoller: false,
+                  		rangeSelectorHeight : 30,
+						rangeSelectorPlotStrokeColor : 'yellow',
+						rangeSelectorPlotFillColor : 'lightyellow',
+						showRangeSelector : true,
+  						rollPeriod: 1,
+  						isZoomedIgnoreProgrammaticZoom:true,
+				        axes: {
+				        	x: {
+					          axisLabelFormatter: function(d, gran) {
+			              		return formateDate(d,false);
+					          },
+					          valueFormatter: function(d, gran,a,b,c) {
+				          		var date = new Date(d);
+								return formateDate(date,false);
+					          }
+					        },
+				            y: {
+				                axisLabelFormatter: function (y,vv,a,b,c) {
+				                    return y+ 'Km';
+				                },
+				                valueFormatter: function (y,vv,a,b,index) {
+				                	var date = new Date(b.lastx_)
+									var today = formateDate(date,true);
+									var returned = '<br/>'+y+' Km/Hr'
+				                	if (data && data.litros){
+				                    	returned+= ' - litros: '+data.litros[a][today];
+				                	}
+				                	if (data && data.diffs){
+				                    	returned +=' - diferença:'+data.diffs[a][today];
+				                    }
+				                    return returned+'<br/>'
+				                }               
+				            }
+				        },
+				        highlightSeriesOpts: {
+				          strokeWidth: 3,
+				          strokeBorderWidth: 1,
+				          highlightCircleSize: 5
+				        }
+			      	});
+			      	g.resize()
+				  	
+				};
+
+				$.getJSON( "/labels_available", function( data ) {
+		   			selectId = document.getElementById('placas');
+		   			initial_index = selectId.options.length
+					for(i = 0;i<data.length;i++) {   			
+ 						selectId.options[initial_index] = new Option(data[i], data[i]);
+ 						initial_index++;
+	 				}
+	 				$("#placas.chosen-select").chosen({
+						disable_search_threshold: 10,
+						no_results_text: "Oops, Nada Encontrado!",
+						width: "95%"
+					});
+				 //  	$("#date.chosen-select").chosen({
+					// 	disable_search_threshold: 10,
+					// 	no_results_text: "Oops, Nada Encontrado!",
+					// 	width: "95%"
+					// });
+					$('#placas').on('change',change_mainGraph );
+					// $('#date').on('change', function (evt,params) {
+					// 	change_mainGraph();
+					// 	change_favoriteGraph();
+
+					// });
+					$('#date_range').on('apply.daterangepicker', function(ev, picker) {
+						change_mainGraph();
+						change_favoriteGraph();
+					  // console.log(picker.startDate.format('YYYY-MM-DD'));
+					  // console.log(picker.endDate.format('YYYY-MM-DD'));
+					});
+					change_mainGraph();
+
+				  	$.getJSON( "/labels_favorites", function( dataFavorite ) {
+			   			selectId = document.getElementById('placas-favoritas');
+			   			initial_index = selectId.options.length
+						for(i = 0;i<data.length;i++) {   			
+	 						selectId.options[initial_index] = new Option(data[i], data[i]);
+	 						initial_index++;
+		 				}
+		 				for(i = 0;i<dataFavorite.length;i++) {   
+		 					$('#placas-favoritas option[value="'+dataFavorite[i]+'"]').prop('selected', true);			
+		 				}
+		 				$("#placas-favoritas.chosen-select").chosen({
+							disable_search_threshold: 10,
+							no_results_text: "Oops, Nada Encontrado!",
+							width: "95%"
+						});
+						$('#placas-favoritas').on('change',change_favoriteGraph);
+						change_favoriteGraph();
+					});
+
+				});
+				
+				
+		    });
+		</script>
+		
+		
+
+<!-- 		<iframe src="https://jpgraficos.herokuapp.com/caravel/explore/table/1/?x_axis_label=&datasource_name=abastecimento_abastecimento&goto_dash=false&contribution=false&slice_name=Soma+do+Consumo+de+Combust%C3%ADveis+pelo+tempo&show_legend=y&resample_how=&num_period_compare=&since=1+year+ago&y_axis_label=&x_axis_showminmax=y&y_axis_zero=false&flt_op_0=in&viz_type=line&add_to_dash=existing&datasource_type=table&rolling_periods=&time_compare=&userid=1&flt_col_0=combustivel&slice_id=8&x_axis_format=smart_date&show_brush=y&until=now&new_slice_name=&save_to_dashboard_id=1&groupby=combustivel&new_dashboard_name=&flt_eq_0=&rich_tooltip=y&rolling_type=None&rdo_save=overwrite&resample_rule=&y_axis_format=.3s&where=&limit=50&having=&metrics=sum__quantidade&line_interpolation=linear&datasource_id=1&y_log_scale=false&standalone=true&resample_fillmethod=&collapsed_fieldsets=&granularity_sqla=criado_date" width="100%" height="800" seamless frameBorder="0" scrolling="no"></iframe>
+
+
+		<iframe src="https://jpgraficos.herokuapp.com/caravel/explore/table/1/?donut=y&datasource_name=abastecimento_abastecimento&goto_dash=false&viz_type=pie&show_legend=y&slice_id=9&since=1+year+ago&flt_op_0=in&flt_op_1=in&add_to_dash=existing&datasource_type=table&userid=1&flt_col_0=combustivel&flt_col_1=combustivel&until=now&new_slice_name=Litros+de+Combustivel+-+Rosca&save_to_dashboard_id=1&groupby=combustivel&new_dashboard_name=&flt_eq_1=&flt_eq_0=&slice_name=Litros+de+Combustivel+-+Rosca&rdo_save=saveas&where=&limit=50&having=&metrics=sum__quantidade&datasource_id=1&standalone=true&collapsed_fieldsets=&granularity_sqla=criado_date" width="100%" height="800" seamless frameBorder="0" scrolling="no"></iframe> -->
+
+	{% endif %}
+
+ {{ block.super }}
+{% endblock %}
